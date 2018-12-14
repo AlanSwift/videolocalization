@@ -9,9 +9,10 @@ class VideoLocalization(nn.Module):
 		self.conv = conv_layer(video_dim, [512, 512, 512], [3, 3, 3], {'src':dropout, 'hid':dropout})
 		self.attn = VideoTextAttention(512, text_dim, 400)
 
-	def forward(self, x, y):
+	def forward(self, x, y, x_mask, y_mask):
 		x = self.conv(x)
 		print("111", x.shape)
-		z = self.attn(x, y)
+		z = self.attn(x, y, x_mask, y_mask)
 		print("attn", z.shape)
+		exit(0)
 		return x

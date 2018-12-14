@@ -20,7 +20,7 @@ def train(config):
         frame_vecs, frame_mask, ques_vecs, ques_mask, starts, ends = data_iter
         print("f1", frame_vecs.shape)
         print("f2", ques_vecs.shape)
-        model(frame_vecs.to(device), ques_vecs.to(device))
+        model(frame_vecs.to(device), ques_vecs.to(device), frame_mask.to(device), ques_mask.to(device))
         exit(0)
 
 if __name__ == '__main__':
