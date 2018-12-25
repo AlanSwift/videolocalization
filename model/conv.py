@@ -20,7 +20,6 @@ class conv_layer(nn.Module):
 		for layer_idx in range(len(hidden)):
 			nin = hidden[layer_idx] if layer_idx == 0 else hidden[layer_idx - 1]
 			nout = hidden[layer_idx]
-			print("...", nin, nout)
 			if nin != nout:
 				input_dim = inputs_dim if layer_idx == 0 else nin
 				self.resModule.append(nn.Sequential(self.linear_mapping(input_dim=input_dim, out_dim=nout,
@@ -60,7 +59,6 @@ class conv_layer(nn.Module):
 	def forward(self, inputs):
 		next_layer = self.fc(inputs)
 		for i in range(self.layers_num):
-			print(i)
 			if self.resModule[i] is None:
 				res_inputs = next_layer
 			else:

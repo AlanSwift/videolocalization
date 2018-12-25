@@ -8,20 +8,32 @@ from model.model import VideoLocalization
 from gensim.models import KeyedVectors
 from dataloader import Loader
 from torch.utils.data import Dataset, DataLoader
+from utils import get_log
 
 def train(config):
+    logger = get_log("log/log.txt")
     device = torch.device('cuda')
     word2vec = KeyedVectors.load_word2vec_format(config["word2vec"], binary=True)
     train_dataset = Loader(config, config['train_data'], word2vec)
     train_loader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
     model = VideoLocalization(stack_num=5, video_dim=500, text_dim=300).to(device)
     model.train(True)
-    for data_iter in train_loader:
-        frame_vecs, frame_mask, ques_vecs, ques_mask, starts, ends = data_iter
-        print("f1", frame_vecs.shape)
-        print("f2", ques_vecs.shape)
-        model(frame_vecs.to(device), ques_vecs.to(device), frame_mask.to(device), ques_mask.to(device))
-        exit(0)
+    parameters = filter(lambda p: p.requires_grad, model.parameters())
+    optimizer = optim.Adam(parameters, lr=0.001)
+
+    for epoch in range(100):
+        iter_cnt = 0
+        loss_total = 0
+        for i, data_iter in enumerate(train_loader):
+            
+            model.zero_grad()
+            frame_vecs, frame_mask, ques_vecs, ques_mask, starts, ends = data_iter
+            loss = model(frame_vecs.to(device), ques_vecs.to(device), frame_mask.to(device), ques_mask.to(device), starts.to(device), ends.to(device))
+            loss.backward()
+            optimizer.step()
+            
+            logger.info("[epoch:{}] [step:{}] loss:{}".format(epoch, i, loss.item()))
+
 
 if __name__ == '__main__':
     config= {
