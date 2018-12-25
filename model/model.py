@@ -49,7 +49,7 @@ class VideoLocalization(nn.Module):
 		false_probility = probility * (1 - mask)
 		loss_emb_1 = self.arg_1 * torch.log(1 + torch.exp(-truth_probility))
 		loss_emb_2 = self.arg_2	* torch.log(1 + torch.exp(false_probility))
-		loss_emb_mean = torch.sum(loss_emb_1) / num_pos + torch.sum(loss_emb_2) / num_neg
+		loss_emb_mean = torch.sum(loss_emb_1*mask) / num_pos + torch.sum(loss_emb_2*(1-mask)) / num_neg
 
 
 		truth_ = truth.view(b, 1, 2).expand(-1, clip_cnt, -1).float()
