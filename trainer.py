@@ -1,6 +1,6 @@
 import os
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0, 1, 2, 3"
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -12,27 +12,78 @@ from utils import get_log
 
 def train(config):
     logger = get_log("log/log.txt")
-    device = torch.device('cuda')
+    devices_ids=[0, 1,2,3]
+    
     word2vec = KeyedVectors.load_word2vec_format(config["word2vec"], binary=True)
     train_dataset = Loader(config, config['train_data'], word2vec)
     train_loader = DataLoader(dataset=train_dataset, batch_size=64, shuffle=True)
-    model = VideoLocalization(stack_num=5, video_dim=500, text_dim=300).to(device)
-    model.train(True)
+
+    net = VideoLocalization(stack_num=5, video_dim=500, text_dim=300, len_max_video=384, len_max_seq=20).to(devices_ids[0])
+    model = net #torch.nn.DataParallel(net,device_ids=devices_ids,output_device=devices_ids[0]) 
+
     parameters = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = optim.Adam(parameters, lr=0.001)
-
+    data_cnt = len(train_loader)
+    train_set_cnt = int(data_cnt * 0.7)
+    print(data_cnt, train_set_cnt)
+    #optimizer = torch.nn.DataParallel(optimizer, device_ids=devices_ids, output_device=devices_ids[0])
     for epoch in range(100):
         iter_cnt = 0
         loss_total = 0
+        model.train(True)
+
         for i, data_iter in enumerate(train_loader):
-            
+            if i == train_set_cnt:
+                break
             model.zero_grad()
             frame_vecs, frame_mask, ques_vecs, ques_mask, starts, ends = data_iter
-            loss = model(frame_vecs.to(device), ques_vecs.to(device), frame_mask.to(device), ques_mask.to(device), starts.to(device), ends.to(device))
+            if ques_vecs.shape[1] != ques_mask.shape[1]:
+                assert 0, print(ques_vecs.shape, ques_mask.shape)
+            loss = model(frame_vecs.to(devices_ids[0]), 
+                        ques_vecs.to(devices_ids[0]), 
+                        frame_mask.to(devices_ids[0]), 
+                        ques_mask.to(devices_ids[0]), 
+                        starts.to(devices_ids[0]), 
+                        ends.to(devices_ids[0]))
             loss.backward()
             optimizer.step()
             
             logger.info("[epoch:{}] [step:{}] loss:{}".format(epoch, i, loss.item()))
+        logger.info("test")
+        model.eval()
+        valid, total = [0, 0]
+        for i, data_iter in enumerate(train_loader):
+            if i >= train_set_cnt:
+                break
+            frame_vecs, frame_mask, ques_vecs, ques_mask, starts, ends = data_iter
+            if ques_vecs.shape[1] != ques_mask.shape[1]:
+                assert 0, print(ques_vecs.shape, ques_mask.shape)
+            cnt, b = model(frame_vecs.to(devices_ids[0]), 
+                        ques_vecs.to(devices_ids[0]), 
+                        frame_mask.to(devices_ids[0]), 
+                        ques_mask.to(devices_ids[0]), 
+                        starts.to(devices_ids[0]), 
+                        ends.to(devices_ids[0]), True)
+            valid += cnt
+            total += b
+        logger.info("train result: {}".format(valid/total))
+
+        valid, total = [0, 0]
+        for i, data_iter in enumerate(train_loader):
+            if i < train_set_cnt:
+                continue
+            frame_vecs, frame_mask, ques_vecs, ques_mask, starts, ends = data_iter
+            if ques_vecs.shape[1] != ques_mask.shape[1]:
+                assert 0, print(ques_vecs.shape, ques_mask.shape)
+            cnt, b = model(frame_vecs.to(devices_ids[0]), 
+                        ques_vecs.to(devices_ids[0]), 
+                        frame_mask.to(devices_ids[0]), 
+                        ques_mask.to(devices_ids[0]), 
+                        starts.to(devices_ids[0]), 
+                        ends.to(devices_ids[0]), True)
+            valid += cnt
+            total += b
+        logger.info("test result: {}".format(valid/total))
 
 
 if __name__ == '__main__':
@@ -49,7 +100,7 @@ if __name__ == '__main__':
         "regularization_beta": 1e-7,
         "dropout_prob": 0.9,
 
-        "batch_size": 64,
+        "batch_size": 16,
 
         "input_video_dim": 500,
         "max_frames": 384,

@@ -16,6 +16,7 @@ class conv_layer(nn.Module):
 		self.resModule = nn.ModuleList()
 		self.batchNormalizeList = nn.ModuleList()
 		self.fc = nn.Linear(in_features=inputs_dim, out_features=hidden[0], bias=True)
+		self.fc_out = nn.Linear(in_features=hidden[-1], out_features=inputs_dim, bias=True)
 
 		for layer_idx in range(len(hidden)):
 			nin = hidden[layer_idx] if layer_idx == 0 else hidden[layer_idx - 1]
@@ -70,6 +71,6 @@ class conv_layer(nn.Module):
 			next_layer = (next_layer + res_inputs) * torch.sqrt(torch.tensor(0.5).cuda())
 			next_layer = next_layer.transpose(1, 2)
 			next_layer = self.batchNormalizeList[i](next_layer).transpose(1, 2)
-		return next_layer
+		return self.fc_out(next_layer)
 
 

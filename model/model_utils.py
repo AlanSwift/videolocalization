@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 def IoU(a_param, b_param):
 	'''
 		a:[b, clip, 2] tensor
